@@ -2,16 +2,14 @@ const express = require('express');
 const request = require('request');
 const cors = require('cors');
 const compression = require('compression');
+require('dotenv').config()
 
 const balancer = express();
 balancer.use(compression());
 balancer.use(cors());
 
-let servers = [
-	'eos.greymass.com',
-	'proxy.eosnode.tools',
-	'api.franceos.fr',
-];
+let servers = process.env.SERVERS.split(',');
+let down = [];
 
 let serverDownCount = {};
 let timeouts = {};
@@ -21,8 +19,10 @@ const serverDown = (server) => {
 	serverDownCount[server]++;
 	console.error(`Server down: ${server} | Count: ${serverDownCount[server]}`);
 	servers = servers.filter(x => x !== server);
+	down.push(server);
 	setTimeout(() => {
 		servers.push(server);
+		down = down.filter(x => x !== server);
 	}, serverDownCount[server]*1000);
 }
 
@@ -60,5 +60,12 @@ const handler = () => (req, res) => {
 	req.pipe(_req).pipe(res);
 };
 
+balancer.get('/stats', (req,res) => {
+
+	res.json({
+		up:servers,
+		down,
+	});
+});
 balancer.get('*', handler()).post('*', handler());
-balancer.listen(7899);
+balancer.listen(process.env.PORT);
