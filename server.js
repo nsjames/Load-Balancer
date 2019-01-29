@@ -12,6 +12,26 @@ let timeouts = {};
 
 
 
+
+const express = require('express');
+const cors = require('cors');
+const compression = require('compression');
+const balancer = express();
+balancer.use(compression());
+balancer.use(cors());
+
+balancer.get('/stats', (req,res) => {
+
+	res.json({
+		up:servers,
+		down,
+		lastDown,
+		serverDownCount
+	});
+});
+balancer.listen(process.env.PORT);
+
+
 const serverDown = (server) => {
 	if(!serverDownCount[server]) serverDownCount[server] = 0;
 	serverDownCount[server]++;
@@ -128,22 +148,3 @@ server {
 }`
 
 
-
-
-const express = require('express');
-const cors = require('cors');
-const compression = require('compression');
-const balancer = express();
-balancer.use(compression());
-balancer.use(cors());
-
-balancer.get('/stats', (req,res) => {
-
-	res.json({
-		up:servers,
-		down,
-		lastDown,
-		serverDownCount
-	});
-});
-balancer.listen(process.env.PORT);
