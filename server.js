@@ -12,11 +12,14 @@ let servers = process.env.SERVERS.split(',');
 let down = [];
 
 let serverDownCount = {};
+let lastDown = {};
 let timeouts = {};
 
 const serverDown = (server) => {
 	if(!serverDownCount[server]) serverDownCount[server] = 0;
 	serverDownCount[server]++;
+	lastDown[server] = +new Date();
+
 	console.error(`Server down: ${server} | Count: ${serverDownCount[server]}`);
 	servers = servers.filter(x => x !== server);
 	down.push(server);
@@ -65,6 +68,7 @@ balancer.get('/stats', (req,res) => {
 	res.json({
 		up:servers,
 		down,
+		lastDown,
 	});
 });
 balancer.get('*', handler()).post('*', handler());
