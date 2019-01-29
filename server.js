@@ -45,25 +45,26 @@ const checkServers = async () => {
 			serverDown(server);
 			return null;
 		})
-	}))).filter(x => !!x).map(x => `server ${x}:443;`);
+	}))).filter(x => !!x).map(x => `server ${x}:443;\r\n`);
 
 
 	const newFile = block(upservers.join(' '));
-	if(lastFile !== newFile){
-		lastFile = newFile;
+	console.log('newFile', newFile);
+	// if(lastFile !== newFile){
+	// 	lastFile = newFile;
+	//
+	// 	fs.writeFile('/etc/nginx/sites-available/default', block(upservers.join(' ')), function (err) {
+	// 		if (err) console.error(err);
+	// 		exec(`sudo service nginx reload`, function(error, stdout, stderr) {
+	// 			if(error) console.error('error', error);
+	// 			// command output is in stdout
+	// 		});
+	// 	});
+	// }
 
-		fs.writeFile('/etc/nginx/sites-available/default', block(upservers.join(' ')), function (err) {
-			if (err) console.log(err);
-			exec(`sudo service nginx reload`, function(error, stdout, stderr) {
-				if(error) console.error('error', error);
-				// command output is in stdout
-			});
-		});
-	}
-
-	setTimeout(() => {
-		checkServers();
-	}, 10000);
+	// setTimeout(() => {
+	// 	checkServers();
+	// }, 10000);
 }
 
 checkServers();
