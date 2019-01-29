@@ -69,6 +69,7 @@ balancer.get('/stats', (req,res) => {
 		up:servers,
 		down,
 		lastDown,
+		serverDownCount
 	});
 });
 balancer.get('*', handler()).post('*', handler());
