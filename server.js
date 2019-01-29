@@ -1,5 +1,6 @@
 const express = require('express');
 const request = require('request');
+const rp = require('request-promise-native');
 const cors = require('cors');
 const compression = require('compression');
 require('dotenv').config()
@@ -8,7 +9,7 @@ const balancer = express();
 balancer.use(compression());
 balancer.use(cors());
 
-let servers = process.env.SERVERS.split(',');
+let servers = process.env.SERVERS.split(',');//['node.com']//
 let down = [];
 
 let serverDownCount = {};
@@ -39,27 +40,41 @@ const randomServer = () => {
 }
 
 const handler = () => (req, res) => {
-	// res.status(500).send('All nodes are down!');
-	// return;
 	const server = randomServer();
 	if(!server) {
 		res.status(500).send('All nodes are down!');
 		return;
 	}
-	const _req = request({
-		url: `https://${server}${req.url}`,
-	})
-	.on('error', error => {
+
+	res.header('endpoint',server);
+	res.header('access-control-allow-origin','*');
+	res.header('access-control-allow-methods','GET, POST, OPTIONS');
+	res.header('access-control-allow-headers','X-Requested-With,Accept,Content-Type,Origin');
+
+	rp({
+		uri: `https://${server}${req.url}`,
+		gzip: true
+	}).then(x => {
+		// req.pipe(x).pipe(res);
+		res.json(JSON.parse(x));
+	}).catch(err => {
+		console.error(err);
 		serverDown(server);
 
 		// Recurse until server found
 		return handler(req, res);
-	});
-	// res.header('endpoint',server);
-	// res.header('access-control-allow-origin','*');
-	// res.header('access-control-allow-methods','GET, POST, OPTIONS');
-	// res.header('access-control-allow-headers','X-Requested-With,Accept,Content-Type,Origin');
-	req.pipe(_req).pipe(res);
+	})
+	// .on('error', error => {
+	// 	console.error(error);
+	// 	serverDown(server);
+	//
+	// 	// Recurse until server found
+	// 	return handler(req, res);
+	// });
+	//
+
+	// req.pipe(_r).pipe(res);
+	// return true;
 };
 
 balancer.get('/stats', (req,res) => {
