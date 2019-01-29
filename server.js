@@ -60,7 +60,7 @@ const handler = () => (req, res) => {
 		// req.pipe(x).pipe(res);
 		res.json(JSON.parse(x));
 	}).catch(err => {
-		console.error(err);
+		res.json(JSON.parse(err));
 		serverDown(server);
 
 		// Recurse until server found
