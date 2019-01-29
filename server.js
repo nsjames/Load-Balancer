@@ -53,27 +53,21 @@ const handler = () => (req, res) => {
 	res.header('access-control-allow-methods','GET, POST, OPTIONS');
 	res.header('access-control-allow-headers','X-Requested-With,Accept,Content-Type,Origin');
 
-	Promise.race([
-		new Promise(r => {
-			setTimeout(() => {
-				r(false);
-				return res.send('timeout');
-			}, 1000);
-		}),
-		rp({
-			uri: `https://${server}${req.url}`,
-			gzip: true
-		}).then(x => {
-			// req.pipe(x).pipe(res);
-			res.json(JSON.parse(x));
-		}).catch(err => {
-			return res.send(err);
-			serverDown(server);
 
-			// Recurse until server found
-			return handler(req, res);
-		})
-	])
+
+	rp({
+		uri: `https://${server}${req.url}`,
+		gzip: true
+	}).then(x => {
+		// req.pipe(x).pipe(res);
+		res.json(JSON.parse(x));
+	}).catch(err => {
+		return res.send(err);
+		serverDown(server);
+
+		// Recurse until server found
+		return handler(req, res);
+	})
 	// .on('error', error => {
 	// 	console.error(error);
 	// 	serverDown(server);
