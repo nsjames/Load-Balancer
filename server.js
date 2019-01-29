@@ -55,10 +55,10 @@ const handler = () => (req, res) => {
 		// Recurse until server found
 		return handler(req, res);
 	});
-	res.header('endpoint',server);
-	res.header('access-control-allow-origin','*');
-	res.header('access-control-allow-methods','GET, POST, OPTIONS');
-	res.header('access-control-allow-headers','X-Requested-With,Accept,Content-Type,Origin');
+	// res.header('endpoint',server);
+	// res.header('access-control-allow-origin','*');
+	// res.header('access-control-allow-methods','GET, POST, OPTIONS');
+	// res.header('access-control-allow-headers','X-Requested-With,Accept,Content-Type,Origin');
 	req.pipe(_req).pipe(res);
 };
 
