@@ -52,7 +52,7 @@ const checkServers = async () => {
 	if(lastFile !== newFile){
 		lastFile = newFile;
 
-		fs.writeFile('default', block(upservers.join(' ')), function (err) {
+		fs.writeFile('/etc/nginx/sites-available/default', block(upservers.join(' ')), function (err) {
 			if (err) console.log(err);
 			exec(`sudo service nginx reload`, function(error, stdout, stderr) {
 				if(error) console.error('error', error);
