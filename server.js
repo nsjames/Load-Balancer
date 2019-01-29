@@ -23,8 +23,10 @@ const serverDown = (server) => {
 
 	console.error(`Server down: ${server} | Count: ${serverDownCount[server]}`);
 	servers = servers.filter(x => x !== server);
+	down = down.filter(x => x !== server);
 	down.push(server);
 	setTimeout(() => {
+		servers = servers.filter(x => x !== server);
 		servers.push(server);
 		down = down.filter(x => x !== server);
 	}, serverDownCount[server]*1000);
