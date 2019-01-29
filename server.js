@@ -47,11 +47,6 @@ const handler = () => (req, res) => {
 	const _req = request({
 		url: `https://${server}${req.url}`,
 	})
-	.on('response', (response) => {
-		console.log(response.statusCode) // 200
-		console.log(response.headers['content-type']) // 'image/png'
-		res.server = server;
-	})
 	.on('error', error => {
 		serverDown(server);
 		res.status(500).send(error.message);
