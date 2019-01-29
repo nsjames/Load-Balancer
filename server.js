@@ -128,6 +128,7 @@ checkServers();
 const block = s => `
 upstream nodes {
     ip_hash;
+    ${s}
 }
 
 upstream ssl_nodes {
