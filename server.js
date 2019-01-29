@@ -39,6 +39,8 @@ const randomServer = () => {
 }
 
 const handler = () => (req, res) => {
+	res.status(500).send('All nodes are down!');
+	return;
 	const server = randomServer();
 	if(!server) {
 		res.status(500).send('All nodes are down!');
