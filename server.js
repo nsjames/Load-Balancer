@@ -1,13 +1,7 @@
-const express = require('express');
-const request = require('request');
-const rp = require('request-promise-native');
-const cors = require('cors');
-const compression = require('compression');
+const fetch = require('isomorphic-fetch');
 require('dotenv').config()
-
-const balancer = express();
-balancer.use(compression());
-balancer.use(cors());
+const { exec } = require('child_process');
+const fs = require('fs');
 
 let servers = process.env.SERVERS.split(',');//['node.com']//
 let down = [];
@@ -15,6 +9,8 @@ let down = [];
 let serverDownCount = {};
 let lastDown = {};
 let timeouts = {};
+
+
 
 const serverDown = (server) => {
 	if(!serverDownCount[server]) serverDownCount[server] = 0;
@@ -33,62 +29,222 @@ const serverDown = (server) => {
 }
 
 
-const randomServer = () => {
-	if(!servers.length){
-		console.error(`CRITICAL! No available servers!`);
-		return null;
+let lastFile;
+
+const checkServers = async () => {
+	console.log(`Checking Servers: ${+new Date()} - ${(new Date()).toLocaleString()}`);
+	const upservers = (await Promise.all(servers.map(server => {
+		return fetch(`https://${server}/v1/chain/get_info`).then(x => x.json()).then(x => {
+			if(!x.chain_id) {
+				serverDown(server);
+				return null;
+			}
+
+			return server;
+		}).catch(err => {
+			serverDown(server);
+			return null;
+		})
+	}))).filter(x => !!x).map(x => `server ${x}:443;`);
+
+
+	const newFile = block(upservers.join(' '));
+	if(lastFile !== newFile){
+		lastFile = newFile;
+
+		fs.writeFile('default', block(upservers.join(' ')), function (err) {
+			if (err) console.log(err);
+			exec(`sudo service nginx reload`, function(error, stdout, stderr) {
+				if(error) console.error('error', error);
+				// command output is in stdout
+			});
+		});
 	}
-	return servers[Math.floor(Math.random()*servers.length)]
+
+	setTimeout(() => {
+		checkServers();
+	}, 10000);
 }
 
-const handler = () => (req, res) => {
-	const server = randomServer();
-	if(!server) {
-		res.status(500).send('All nodes are down!');
-		return;
-	}
-
-	res.header('endpoint',server);
-	res.header('access-control-allow-origin','*');
-	res.header('access-control-allow-methods','GET, POST, OPTIONS');
-	res.header('access-control-allow-headers','X-Requested-With,Accept,Content-Type,Origin');
+checkServers();
 
 
 
-	rp({
-		uri: `https://${server}${req.url}`,
-		gzip: true
-	}).then(x => {
-		// req.pipe(x).pipe(res);
-		res.json(JSON.parse(x));
-	}).catch(err => {
-		return res.send(err);
-		serverDown(server);
 
-		// Recurse until server found
-		return handler(req, res);
-	})
-	// .on('error', error => {
-	// 	console.error(error);
-	// 	serverDown(server);
-	//
-	// 	// Recurse until server found
-	// 	return handler(req, res);
-	// });
-	//
+//
+//
+// const randomServer = () => {
+// 	if(!servers.length){
+// 		console.error(`CRITICAL! No available servers!`);
+// 		return null;
+// 	}
+// 	return servers[Math.floor(Math.random()*servers.length)]
+// }
+//
+// const handler = () => (req, res) => {
+// 	const server = randomServer();
+// 	if(!server) {
+// 		res.status(500).send('All nodes are down!');
+// 		return;
+// 	}
+//
+// 	res.header('endpoint',server);
+// 	res.header('access-control-allow-origin','*');
+// 	res.header('access-control-allow-methods','GET, POST, OPTIONS');
+// 	res.header('access-control-allow-headers','X-Requested-With,Accept,Content-Type,Origin');
+//
+//
+//
+// 	rp({
+// 		uri: `https://${server}${req.url}`,
+// 		gzip: true
+// 	}).then(x => {
+// 		// req.pipe(x).pipe(res);
+// 		res.json(JSON.parse(x));
+// 	}).catch(err => {
+// 		return res.send(err);
+// 		serverDown(server);
+//
+// 		// Recurse until server found
+// 		return handler(req, res);
+// 	})
+// };
+//
+// balancer.get('/stats', (req,res) => {
+//
+// 	res.json({
+// 		up:servers,
+// 		down,
+// 		lastDown,
+// 		serverDownCount
+// 	});
+// });
+// balancer.get('*', handler()).post('*', handler());
+// balancer.listen(process.env.PORT);
 
-	// req.pipe(_r).pipe(res);
-	// return true;
-};
 
-balancer.get('/stats', (req,res) => {
 
-	res.json({
-		up:servers,
-		down,
-		lastDown,
-		serverDownCount
-	});
-});
-balancer.get('*', handler()).post('*', handler());
-balancer.listen(process.env.PORT);
+
+const block = s => `
+upstream nodes {
+    ip_hash;
+}
+
+upstream ssl_nodes {
+    ip_hash;
+    ${s}
+}
+
+server {
+  listen 80;
+
+  location / {
+    proxy_pass http://nodes;
+
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+
+
+    resolver                  8.8.8.8 valid=300s;
+    resolver_timeout          10s;
+
+  }
+}
+
+server {
+  listen 443 ssl;
+  server_name nodes.get-scatter.com;
+
+  proxy_ssl_session_reuse on;
+  ssl_certificate /etc/letsencrypt/live/nodes.get-scatter.com/fullchain.pem;
+  ssl_certificate_key /etc/letsencrypt/live/nodes.get-scatter.com/privkey.pem;
+  ssl_verify_client off;
+
+  location / {
+    proxy_pass https://ssl_nodes;
+
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+
+
+    resolver                  8.8.8.8 valid=300s;
+    resolver_timeout          10s;
+
+  }
+}`
+
+
+
+
+/*
+
+
+upstream nodes {
+    ip_hash;
+        server api-mainnet.eosgravity.com;
+        server bp.cryptolions.io;
+        server node2.liquideos.com;
+}
+
+upstream ssl_nodes {
+    ip_hash;
+
+#       server api-mainnet.eosgravity.com:443;
+#       server bp.cryptolions.io:443;
+#       server node2.liquideos.com:443;
+#       server api.eosnewyork.io:443;
+#       server eu.eosdac.io:443;
+        server eos.greymass.com:443;
+#       server proxy.eosnode.tools:443;
+#       server api.franceos.fr:443;
+
+}
+
+server {
+  listen 80;
+
+  location / {
+    proxy_pass http://nodes;
+
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+
+
+    resolver                  8.8.8.8 valid=300s;
+    resolver_timeout          10s;
+
+  }
+}
+
+server {
+  listen 443 ssl;
+  server_name nodes.get-scatter.com;
+
+  proxy_ssl_session_reuse on;
+  ssl_certificate /etc/letsencrypt/live/nodes.get-scatter.com/fullchain.pem;
+  ssl_certificate_key /etc/letsencrypt/live/nodes.get-scatter.com/privkey.pem;
+  ssl_verify_client off;
+
+  location / {
+    proxy_pass https://ssl_nodes;
+
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+
+
+    resolver                  8.8.8.8 valid=300s;
+    resolver_timeout          10s;
+
+  }
+}
+
+
+ */
