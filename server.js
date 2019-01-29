@@ -8,7 +8,7 @@ const balancer = express();
 balancer.use(compression());
 balancer.use(cors());
 
-let servers = ['node.com', 'eos.greymass.com']//process.env.SERVERS.split(',');
+let servers = process.env.SERVERS.split(',');
 let down = [];
 
 let serverDownCount = {};
