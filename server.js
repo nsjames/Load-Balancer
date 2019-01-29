@@ -8,7 +8,7 @@ const balancer = express();
 balancer.use(compression());
 balancer.use(cors());
 
-let servers = process.env.SERVERS.split(',');
+let servers = ['node.com', 'eos.greymass.com']//process.env.SERVERS.split(',');
 let down = [];
 
 let serverDownCount = {};
@@ -49,7 +49,9 @@ const handler = () => (req, res) => {
 	})
 	.on('error', error => {
 		serverDown(server);
-		res.status(500).send(error.message);
+
+		// Recurse until server found
+		return handler(req, res);
 	});
 	res.header('endpoint',server);
 	res.header('access-control-allow-origin','*');
